@@ -16,14 +16,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Terraform directory
+        run: |
+          echo "Checking for Terraform files in root and setting up terraform directory"
+          mkdir -p ${{ env.TERRAFORM_DIR }}
+          if ls *.tf >/dev/null 2>&1; then
+            mv *.tf ${{ env.TERRAFORM_DIR }}/
+          fi
+          if [ -d modules ]; then
+            mv modules ${{ env.TERRAFORM_DIR }}/
+          fi
+          echo "Terraform directory contents:"
+          ls -la ${{ env.TERRAFORM_DIR }} || echo "Terraform directory is empty"
+
       - name: Debug directory structure
         run: |
-          echo "Listing repository contents (root):"
+          echo "Listing repository root contents:"
           ls -la
           echo "Current working directory:"
           pwd
-          echo "Listing terraform directory contents (if exists):"
-          ls -la ${{ env.TERRAFORM_DIR }} || echo "No terraform directory found"
+          echo "Listing terraform directory contents:"
+          ls -la ${{ env.TERRAFORM_DIR }} || echo "No terraform directory contents"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
