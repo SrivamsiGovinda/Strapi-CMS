@@ -46,9 +46,8 @@ jobs:
         continue-on-error: false
 
       - name: Terraform Plan
-        run: |
-          terraform plan -out=tfplan -var="ecr_repository_url=$(terraform output -raw ecr_repository_url || echo '')"
-        continue-on-error: true
+        run: terraform plan -out=tfplan
+        continue-on-error: false
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
