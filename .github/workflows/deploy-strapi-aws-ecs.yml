@@ -12,9 +12,6 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,17 +22,34 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.GITHUB_ACTIONS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Get Terraform Outputs
+        id: tf-outputs
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: |
+          terraform init
+          echo "ECR_REPOSITORY_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=$(terraform output -raw aws_access_key_id)" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$(terraform output -raw aws_secret_access_key)" >> $GITHUB_ENV
+
+      - name: Update GitHub Secrets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh secret set AWS_ACCESS_KEY_ID -b "${{ env.AWS_ACCESS_KEY_ID }}"
+          gh secret set AWS_SECRET_ACCESS_KEY -b "${{ env.AWS_SECRET_ACCESS_KEY }}"
+          gh secret set ECR_REPOSITORY_URL -b "${{ env.ECR_REPOSITORY_URL }}"
+
       - name: Build and push Docker image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          DOCKER_IMAGE: ${{ steps.login-ecr.outputs.registry }}/strapi-app:latest
+          DOCKER_IMAGE: ${{ env.ECR_REPOSITORY_URL }}:latest
         run: |
           docker build -t ${{ env.DOCKER_IMAGE }} .
           docker push ${{ env.DOCKER_IMAGE }}
@@ -51,7 +65,7 @@ jobs:
 
       - name: Terraform Plan
         working-directory: ${{ env.TERRAFORM_DIR }}
-        run: terraform plan -out=tfplan
+        run: terraform plan -out=tfplan -var="ecr_repository_url=${{ env.ECR_REPOSITORY_URL }}"
 
       - name: Terraform Apply
         working-directory: ${{ env.TERRAFORM_DIR }}
