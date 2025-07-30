@@ -7,6 +7,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  TERRAFORM_DIR: terraform
 
 jobs:
   deploy:
@@ -17,10 +18,12 @@ jobs:
 
       - name: Debug directory structure
         run: |
-          echo "Listing repository contents:"
+          echo "Listing repository contents (root):"
           ls -la
           echo "Current working directory:"
           pwd
+          echo "Listing terraform directory contents (if exists):"
+          ls -la ${{ env.TERRAFORM_DIR }} || echo "No terraform directory found"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -42,17 +45,21 @@ jobs:
           terraform_version: 1.5.0
 
       - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_DIR }}
         run: terraform init
         continue-on-error: false
 
       - name: Terraform Plan
+        working-directory: ${{ env.TERRAFORM_DIR }}
         run: terraform plan -out=tfplan
         continue-on-error: false
 
       - name: Terraform Apply
+        working-directory: ${{ env.TERRAFORM_DIR }}
         run: terraform apply -auto-approve tfplan
 
       - name: Get Terraform Outputs
+        working-directory: ${{ env.TERRAFORM_DIR }}
         id: tf-outputs
         run: |
           echo "ECR_REPOSITORY_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_ENV
