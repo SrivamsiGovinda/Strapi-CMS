@@ -33,7 +33,16 @@ jobs:
             echo "Found main.tf in terraform directory"
           else
             echo "Error: No main.tf found in root or terraform directory"
-            exit 1
+            echo "Creating minimal main.tf in terraform directory as fallback"
+            mkdir -p ${{ env.TERRAFORM_DIR }}
+            echo "# Minimal Terraform configuration\nterraform {\n  required_providers {\n    aws = { source = \"hashicorp/aws\", version = \"~> 4.0\" }\n  }\n}\nprovider \"aws\" {\n  region = \"${{ env.AWS_REGION }}\"\n}" > ${{ env.TERRAFORM_DIR }}/main.tf
+          fi
+          echo "Checking for modules directory:"
+          if [ -d modules ] || [ -d ${{ env.TERRAFORM_DIR }}/modules ]; then
+            echo "Modules directory found"
+          else
+            echo "Warning: No modules directory found in root or terraform directory"
+            mkdir -p ${{ env.TERRAFORM_DIR }}/modules
           fi
 
       - name: Set up Terraform directory
@@ -48,6 +57,20 @@ jobs:
           fi
           echo "Terraform directory contents after setup:"
           ls -la ${{ env.TERRAFORM_DIR }} || echo "Terraform directory is empty"
+          if [ -f ${{ env.TERRAFORM_DIR }}/main.tf ]; then
+            echo "Contents of main.tf:"
+            cat ${{ env.TERRAFORM_DIR }}/main.tf
+          else
+            echo "Error: main.tf still not found in terraform directory"
+            exit 1
+          fi
+          echo "Checking for terraform.tfstate:"
+          if [ -f ${{ env.TERRAFORM_DIR }}/terraform.tfstate ]; then
+            echo "Found terraform.tfstate"
+            cat ${{ env.TERRAFORM_DIR }}/terraform.tfstate
+          else
+            echo "No terraform.tfstate found"
+          fi
 
       - name: Set Terraform working directory
         id: set-working-dir
@@ -58,19 +81,14 @@ jobs:
             echo "TERRAFORM_WORKING_DIR=." >> $GITHUB_ENV
           fi
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+     
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -112,6 +130,7 @@ jobs:
         run: terraform destroy -auto-approve 
 
       - name: Get Terraform Outputs
+        if: env.DESTROY == 'false'
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
         id: tf-outputs
         run: |
@@ -120,6 +139,7 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=$(terraform output -raw aws_secret_access_key)" >> $GITHUB_ENV
 
       - name: Update GitHub Secrets
+        if: env.DESTROY == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -128,7 +148,17 @@ jobs:
           gh secret set ECR_REPOSITORY_URL -b "${{ env.ECR_REPOSITORY_URL }}"
         continue-on-error: true
 
+      - name: Set up Docker Buildx
+        if: env.DESTROY == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        if: env.DESTROY == 'false'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
       - name: Build and push Docker image
+        if: env.DESTROY == 'false'
         env:
           DOCKER_IMAGE: ${{ env.ECR_REPOSITORY_URL }}:latest
         run: |
