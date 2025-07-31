@@ -141,25 +141,25 @@ jobs:
           fi
           # Check and import Aurora prod cluster
           if aws rds describe-db-clusters --db-cluster-identifier strapi-aurora-prod --region ${{ env.AWS_REGION }} | grep -q '"DBClusterIdentifier": "strapi-aurora-prod"'; then
-            terraform state show module.aurora.aws_rds_cluster.prod >/dev/null 2>&1 || terraform import module.aurora.aws_rds_cluster.prod strapi-aurora-prod
+            terraform state show module.aurora.aws_rds_cluster.aurora >/dev/null 2>&1 || terraform import module.aurora.aws_rds_cluster.aurora strapi-aurora-prod
           else
             echo "No Aurora prod cluster 'strapi-aurora-prod' found, skipping import"
           fi
           # Check and import Aurora staging cluster
           if aws rds describe-db-clusters --db-cluster-identifier strapi-aurora-staging --region ${{ env.AWS_REGION }} | grep -q '"DBClusterIdentifier": "strapi-aurora-staging"'; then
-            terraform state show module.aurora.aws_rds_cluster.staging >/dev/null 2>&1 || terraform import module.aurora.aws_rds_cluster.staging strapi-aurora-staging
+            terraform state show module.aurora.aws_rds_cluster.aurora >/dev/null 2>&1 || terraform import module.aurora.aws_rds_cluster.aurora strapi-aurora-staging
           else
             echo "No Aurora staging cluster 'strapi-aurora-staging' found, skipping import"
           fi
           # Check and import ALB prod
           if aws elbv2 describe-load-balancers --names strapi-prod-alb --region ${{ env.AWS_REGION }} | grep -q '"LoadBalancerName": "strapi-prod-alb"'; then
-            terraform state show module.ecs.aws_lb.prod >/dev/null 2>&1 || terraform import module.ecs.aws_lb.prod arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${AWS_ACCOUNT_ID}:loadbalancer/app/strapi-prod-alb/$(aws elbv2 describe-load-balancers --names strapi-prod-alb --region ${{ env.AWS_REGION }} --query 'LoadBalancers[0].LoadBalancerArn' --output text | awk -F'/' '{print $NF}')
+            terraform state show module.ecs.aws_lb.strapi >/dev/null 2>&1 || terraform import module.ecs.aws_lb.strapi arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${AWS_ACCOUNT_ID}:loadbalancer/app/strapi-prod-alb/$(aws elbv2 describe-load-balancers --names strapi-prod-alb --region ${{ env.AWS_REGION }} --query 'LoadBalancers[0].LoadBalancerArn' --output text | awk -F'/' '{print $NF}')
           else
             echo "No ALB 'strapi-prod-alb' found, skipping import"
           fi
           # Check and import ALB staging
           if aws elbv2 describe-load-balancers --names strapi-staging-alb --region ${{ env.AWS_REGION }} | grep -q '"LoadBalancerName": "strapi-staging-alb"'; then
-            terraform state show module.ecs.aws_lb.staging >/dev/null 2>&1 || terraform import module.ecs.aws_lb.staging arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${AWS_ACCOUNT_ID}:loadbalancer/app/strapi-staging-alb/$(aws elbv2 describe-load-balancers --names strapi-staging-alb --region ${{ env.AWS_REGION }} --query 'LoadBalancers[0].LoadBalancerArn' --output text | awk -F'/' '{print $NF}')
+            terraform state show module.ecs.aws_lb.strapi >/dev/null 2>&1 || terraform import module.ecs.aws_lb.strapi arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${AWS_ACCOUNT_ID}:loadbalancer/app/strapi-staging-alb/$(aws elbv2 describe-load-balancers --names strapi-staging-alb --region ${{ env.AWS_REGION }} --query 'LoadBalancers[0].LoadBalancerArn' --output text | awk -F'/' '{print $NF}')
           else
             echo "No ALB 'strapi-staging-alb' found, skipping import"
           fi
