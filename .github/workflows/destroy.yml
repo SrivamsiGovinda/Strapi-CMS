@@ -1,14 +1,14 @@
 name: Destroy Strapi AWS Infrastructure
 
 on:
-  workflow_dispatch: # Manual trigger
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
   TERRAFORM_DIR: terraform
+  TF_STATE_BUCKET: strapi-terraform-state
+  TF_STATE_KEY: strapi/state/terraform.tfstate
+  TF_DYNAMODB_TABLE: strapi-terraform-lock
 
 jobs:
   destroy:
@@ -34,6 +34,13 @@ jobs:
             echo "Error: No main.tf found in root or terraform directory"
             exit 1
           fi
+          echo "Checking for modules directory:"
+          if [ -d modules ] || [ -d ${{ env.TERRAFORM_DIR }}/modules ]; then
+            echo "Modules directory found"
+          else
+            echo "Warning: No modules directory found in root or terraform directory"
+            mkdir -p ${{ env.TERRAFORM_DIR }}/modules
+          fi
 
       - name: Set up Terraform directory
         run: |
@@ -47,6 +54,13 @@ jobs:
           fi
           echo "Terraform directory contents after setup:"
           ls -la ${{ env.TERRAFORM_DIR }} || echo "Terraform directory is empty"
+          if [ -f ${{ env.TERRAFORM_DIR }}/main.tf ]; then
+            echo "Contents of main.tf:"
+            cat ${{ env.TERRAFORM_DIR }}/main.tf
+          else
+            echo "Error: main.tf still not found in terraform directory"
+            exit 1
+          fi
 
       - name: Set Terraform working directory
         id: set-working-dir
@@ -71,9 +85,21 @@ jobs:
 
       - name: Terraform Init
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-        run: terraform init
+        run: terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" -backend-config="key=${{ env.TF_STATE_KEY }}" -backend-config="region=${{ env.AWS_REGION }}" -backend-config="dynamodb_table=${{ env.TF_DYNAMODB_TABLE }}"
         continue-on-error: false
+
+      - name: Terraform Refresh
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+        run: terraform refresh
+        continue-on-error: true
+
+      - name: Verify Terraform State
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+        run: |
+          echo "Checking Terraform state in S3:"
+          aws s3 ls s3://${{ env.TF_STATE_BUCKET }}/${{ env.TF_STATE_KEY }} || echo "State file not found in S3"
+          terraform state list
 
       - name: Terraform Destroy
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve -var="domain_name=${{ secrets.DOMAIN_NAME }}"
