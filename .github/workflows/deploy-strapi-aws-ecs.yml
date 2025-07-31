@@ -135,7 +135,7 @@ jobs:
           echo "Importing existing resources into Terraform state if not already present"
           # Check and import ECS cluster
           if aws ecs describe-clusters --clusters strapi-cluster --region ${{ env.AWS_REGION }} | grep -q '"clusterName": "strapi-cluster"'; then
-            terraform state show module.ecs.aws_ecs_cluster.strapi_cluster >/dev/null 2>&1 || terraform import module.ecs.aws_ecs_cluster.strapi_cluster strapi-cluster
+            terraform state show module.ecs.aws_ecs_cluster.main >/dev/null 2>&1 || terraform import module.ecs.aws_ecs_cluster.main strapi-cluster
           else
             echo "No ECS cluster 'strapi-cluster' found, skipping import"
           fi
