@@ -177,7 +177,7 @@ jobs:
           fi
           # Check and import IAM user policy
           if aws iam get-user-policy --user-name github-actions-user --policy-name github-actions-policy | grep -q '"PolicyName": "github-actions-policy"'; then
-            terraform state show module.iam.aws_iam_user_policy.github_actions_policy >/dev/null 2>&1 || terraform import module.iam.aws_iam_user_policy.github_actions_policy github_actions_policy
+            terraform state show module.iam.aws_iam_user_policy.github_actions_policy >/dev/null 2>&1 || terraform import module.iam.aws_iam_user_policy.github_actions_policy github-actions-user:github_actions_policy
           else
             echo "No IAM policy 'github_actions_policy' found, skipping import"
           fi
