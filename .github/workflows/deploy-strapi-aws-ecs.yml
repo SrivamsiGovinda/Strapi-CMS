@@ -112,7 +112,6 @@ jobs:
         run: terraform apply -auto-approve tfplan
 
       - name: Verify Terraform State
-        if: env.DESTROY == 'false'
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
         run: |
           echo "Checking terraform.tfstate after apply:"
