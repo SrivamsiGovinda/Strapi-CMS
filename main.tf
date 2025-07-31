@@ -1,13 +1,9 @@
 provider "aws" {
-    region = "us-east-1"
+  region = "us-east-1"
 }
 
 variable "domain_name" {
-    default = "srivamsi.com"
-}
-
-variable "github_repo" {
-    default = "SrivamsiGovinda/Strapi-CMS"
+  default = "yourdomain.com"
 }
 
 # VPC Module
@@ -31,6 +27,7 @@ module "ecs" {
   aurora_endpoints  = module.aurora.endpoints
   aurora_db_names   = module.aurora.db_names
   aurora_secrets    = module.aurora.secrets
+  ecr_repository_url = module.ecr.repository_url
 }
 
 # Route53 Module

@@ -1,0 +1,79 @@
+name: Destroy Strapi AWS Infrastructure
+
+on:
+  workflow_dispatch: # Manual trigger
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_DIR: terraform
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Debug directory structure
+        run: |
+          echo "Listing repository root contents:"
+          ls -la
+          echo "Current working directory:"
+          pwd
+          echo "Listing terraform directory contents (if exists):"
+          ls -la ${{ env.TERRAFORM_DIR }} || echo "No terraform directory found"
+          echo "Checking for Terraform configuration files:"
+          if [ -f main.tf ]; then
+            echo "Found main.tf in root"
+          elif [ -f ${{ env.TERRAFORM_DIR }}/main.tf ]; then
+            echo "Found main.tf in terraform directory"
+          else
+            echo "Error: No main.tf found in root or terraform directory"
+            exit 1
+          fi
+
+      - name: Set up Terraform directory
+        run: |
+          echo "Setting up Terraform directory"
+          mkdir -p ${{ env.TERRAFORM_DIR }}
+          if [ -f main.tf ] && [ ! -f ${{ env.TERRAFORM_DIR }}/main.tf ]; then
+            mv *.tf ${{ env.TERRAFORM_DIR }}/
+            if [ -d modules ]; then
+              mv modules ${{ env.TERRAFORM_DIR }}/
+            fi
+          fi
+          echo "Terraform directory contents after setup:"
+          ls -la ${{ env.TERRAFORM_DIR }} || echo "Terraform directory is empty"
+
+      - name: Set Terraform working directory
+        id: set-working-dir
+        run: |
+          if [ -f ${{ env.TERRAFORM_DIR }}/main.tf ]; then
+            echo "TERRAFORM_WORKING_DIR=${{ env.TERRAFORM_DIR }}" >> $GITHUB_ENV
+          else
+            echo "TERRAFORM_WORKING_DIR=." >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+        run: terraform init
+        continue-on-error: false
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+        run: terraform destroy -auto-approve

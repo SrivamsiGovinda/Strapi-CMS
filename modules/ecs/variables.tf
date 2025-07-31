@@ -17,3 +17,7 @@ variable "aurora_db_names" {
 variable "aurora_secrets" {
   type = map(string)
 }
+
+variable "ecr_repository_url" {
+  type = string
+}
