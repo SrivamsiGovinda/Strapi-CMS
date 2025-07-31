@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 variable "domain_name" {
-  default = "yourdomain.com"
+  default = "srivamsi.com"
 }
 
 # VPC Module
