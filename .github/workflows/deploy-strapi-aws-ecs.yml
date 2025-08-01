@@ -335,7 +335,7 @@ jobs:
             for VPC_ID in $VPC_IDS; do
               echo "Checking non-default VPC $VPC_ID"
               echo "Importing VPC $VPC_ID into module.vpc.aws_vpc.main"
-              terraform state show module.vpc.aws_vpc.main >/dev/null 2>&1 || terraform import module.vpc.aws_vpc.main $VPC_ID
+              terraform import module.vpc.aws_vpc.main $VPC_ID
             done
           else
               echo "No VPC with tag 'strapi-vpc' found, skipping import"
