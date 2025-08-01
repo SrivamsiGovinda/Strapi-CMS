@@ -322,12 +322,16 @@ jobs:
           else
             echo "No Route53 hosted zones found, skipping import"
           fi
-          # Check and import VPC (assuming default VPC or a known VPC ID)
-          if aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} | grep -q '"VpcId"'; then
-            VPC_ID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} --query 'Vpcs[0].VpcId' --output text)
-            terraform state show module.vpc.aws_vpc.main >/dev/null 2>&1 || terraform import module.vpc.aws_vpc.main $VPC_ID
+          # Check and import non-default VPCs
+          VPC_IDS=$(aws ec2 describe-vpcs --region ${{ env.AWS_REGION }} --query 'Vpcs[?IsDefault==`false`].VpcId' --output text)
+          if [ -n "$VPC_IDS" ]; then
+            for VPC_ID in $VPC_IDS; do
+              echo "Checking non-default VPC $VPC_ID"
+              echo "Importing VPC $VPC_ID into module.vpc.aws_vpc.main"
+              terraform state show module.vpc.aws_vpc.main >/dev/null 2>&1 || terraform import module.vpc.aws_vpc.main $VPC_ID
+            done
           else
-            echo "No VPC with tag 'strapi-vpc' found, skipping import"
+              echo "No VPC with tag 'strapi-vpc' found, skipping import"
           fi
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
