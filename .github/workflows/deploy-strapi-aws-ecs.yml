@@ -230,7 +230,7 @@ jobs:
                 aws ec2 delete-subnet --subnet-id $SUBNET --region ${{ env.AWS_REGION }} || echo "Failed to delete subnet $SUBNET in VPC $VPC_ID"
               done
               # Delete routes and disassociate route tables (except main)
-              ROUTE_TABLES=$(aws ec2 describe-route-tables --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'RouteTables[?Associations[?Main!=`true`]].RouteTableId' --output text)
+              ROUTE_TABLES=$(aws ec2 describe-route-tables --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'RouteTables[].RouteTableId' --output text)
               for RT in $ROUTE_TABLES; do
                 # Delete routes pointing to internet gateway
                 IGW=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'InternetGateways[].InternetGatewayId' --output text)
