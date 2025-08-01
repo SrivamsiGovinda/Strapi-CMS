@@ -207,54 +207,52 @@ jobs:
           else
             echo "No IAM user 'github-actions-user' found, skipping cleanup"
           fi
-          # Clean up VPC dependencies
-          VPC_ID=""
-          if aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} | grep -q '"VpcId"'; then
-            VPC_ID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} --query 'Vpcs[0].VpcId' --output text)
-          elif aws ec2 describe-vpcs --vpc-ids vpc-067e45060d57b2f8a --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
-            VPC_ID="vpc-067e45060d57b2f8a"
-          fi
-          if [ -n "$VPC_ID" ]; then
-            # Delete ENIs
-            ENIS=$(aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'NetworkInterfaces[].NetworkInterfaceId' --output text)
-            for ENI in $ENIS; do
-              aws ec2 delete-network-interface --network-interface-id $ENI --region ${{ env.AWS_REGION }} || echo "Failed to delete ENI $ENI"
-            done
-            # Delete subnets
-            SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'Subnets[].SubnetId' --output text)
-            for SUBNET in $SUBNETS; do
-              aws ec2 delete-subnet --subnet-id $SUBNET --region ${{ env.AWS_REGION }} || echo "Failed to delete subnet $SUBNET"
-            done
-            # Delete routes and disassociate route tables (except main)
-            ROUTE_TABLES=$(aws ec2 describe-route-tables --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'RouteTables[?Associations[?Main!=`true`]].RouteTableId' --output text)
-            for RT in $ROUTE_TABLES; do
-              # Delete routes pointing to internet gateway
-              IGW=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'InternetGateways[].InternetGatewayId' --output text)
-              if [ -n "$IGW" ]; then
-                ROUTES=$(aws ec2 describe-route-tables --route-table-ids $RT --region ${{ env.AWS_REGION }} --query 'RouteTables[0].Routes[?GatewayId==`'$IGW'`].DestinationCidrBlock' --output text)
-                for CIDR in $ROUTES; do
-                  aws ec2 delete-route --route-table-id $RT --destination-cidr-block $CIDR --region ${{ env.AWS_REGION }} || echo "Failed to delete route $CIDR in $RT"
-                done
-              fi
-              # Disassociate route table
-              ASSOCIATIONS=$(aws ec2 describe-route-tables --route-table-ids $RT --region ${{ env.AWS_REGION }} --query 'RouteTables[0].Associations[].RouteTableAssociationId' --output text)
-              for ASSOC in $ASSOCIATIONS; do
-                aws ec2 disassociate-route-table --association-id $ASSOC --region ${{ env.AWS_REGION }} || echo "Failed to disassociate route table $RT"
+          # Clean up VPC dependencies for all VPCs
+          VPC_IDS=$(aws ec2 describe-vpcs --region ${{ env.AWS_REGION }} --query 'Vpcs[].VpcId' --output text)
+          if [ -n "$VPC_IDS" ]; then
+            for VPC_ID in $VPC_IDS; do
+              echo "Cleaning up VPC $VPC_ID"
+              # Delete ENIs
+              ENIS=$(aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'NetworkInterfaces[].NetworkInterfaceId' --output text)
+              for ENI in $ENIS; do
+                aws ec2 delete-network-interface --network-interface-id $ENI --region ${{ env.AWS_REGION }} || echo "Failed to delete ENI $ENI in VPC $VPC_ID"
               done
-              aws ec2 delete-route-table --route-table-id $RT --region ${{ env.AWS_REGION }} || echo "Failed to delete route table $RT"
-            done
-            # Delete internet gateway
-            if [ -n "$IGW" ]; then
-              aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC_ID --region ${{ env.AWS_REGION }} || echo "Failed to detach internet gateway $IGW"
-              aws ec2 delete-internet-gateway --internet-gateway-id $IGW --region ${{ env.AWS_REGION }} || echo "Failed to delete internet gateway $IGW"
-            fi
-            # Delete security groups (except default)
-            SECURITY_GROUPS=$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'SecurityGroups[?GroupName!=`default`].GroupId' --output text)
-            for SG in $SECURITY_GROUPS; do
-              aws ec2 delete-security-group --group-id $SG --region ${{ env.AWS_REGION }} || echo "Failed to delete security group $SG"
+              # Delete subnets
+              SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'Subnets[].SubnetId' --output text)
+              for SUBNET in $SUBNETS; do
+                aws ec2 delete-subnet --subnet-id $SUBNET --region ${{ env.AWS_REGION }} || echo "Failed to delete subnet $SUBNET in VPC $VPC_ID"
+              done
+              # Delete routes and disassociate route tables (except main)
+              ROUTE_TABLES=$(aws ec2 describe-route-tables --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'RouteTables[?Associations[?Main!=`true`]].RouteTableId' --output text)
+              for RT in $ROUTE_TABLES; do
+                # Delete routes pointing to internet gateway
+                IGW=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'InternetGateways[].InternetGatewayId' --output text)
+                if [ -n "$IGW" ]; then
+                  ROUTES=$(aws ec2 describe-route-tables --route-table-ids $RT --region ${{ env.AWS_REGION }} --query 'RouteTables[0].Routes[?GatewayId==`'$IGW'`].DestinationCidrBlock' --output text)
+                  for CIDR in $ROUTES; do
+                    aws ec2 delete-route --route-table-id $RT --destination-cidr-block $CIDR --region ${{ env.AWS_REGION }} || echo "Failed to delete route $CIDR in $RT for VPC $VPC_ID"
+                  done
+                fi
+                # Disassociate route table
+                ASSOCIATIONS=$(aws ec2 describe-route-tables --route-table-ids $RT --region ${{ env.AWS_REGION }} --query 'RouteTables[0].Associations[].RouteTableAssociationId' --output text)
+                for ASSOC in $ASSOCIATIONS; do
+                  aws ec2 disassociate-route-table --association-id $ASSOC --region ${{ env.AWS_REGION }} || echo "Failed to disassociate route table $RT in VPC $VPC_ID"
+                done
+                aws ec2 delete-route-table --route-table-id $RT --region ${{ env.AWS_REGION }} || echo "Failed to delete route table $RT in VPC $VPC_ID"
+              done
+              # Delete internet gateway
+              if [ -n "$IGW" ]; then
+                aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC_ID --region ${{ env.AWS_REGION }} || echo "Failed to detach internet gateway $IGW in VPC $VPC_ID"
+                aws ec2 delete-internet-gateway --internet-gateway-id $IGW --region ${{ env.AWS_REGION }} || echo "Failed to delete internet gateway $IGW in VPC $VPC_ID"
+              fi
+              # Delete security groups (except default)
+              SECURITY_GROUPS=$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'SecurityGroups[?GroupName!=`default`].GroupId' --output text)
+              for SG in $SECURITY_GROUPS; do
+                aws ec2 delete-security-group --group-id $SG --region ${{ env.AWS_REGION }} || echo "Failed to delete security group $SG in VPC $VPC_ID"
+              done
             done
           else
-            echo "No VPC with tag 'strapi-vpc' or ID 'vpc-067e45060d57b2f8a' found"
+            echo "No VPCs found in region ${{ env.AWS_REGION }}"
           fi
       
       - name: Import existing resources
