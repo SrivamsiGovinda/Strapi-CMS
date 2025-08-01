@@ -146,6 +146,7 @@ jobs:
           else
             echo "No ECS service 'strapi-staging-service' found"
           fi
+
           # Delete ECR images
           if aws ecr describe-repositories --repository-names strapi-app --region ${{ env.AWS_REGION }} | grep -q '"repositoryName": "strapi-app"'; then
             IMAGE_DIGESTS=$(aws ecr list-images --repository-name strapi-app --region ${{ env.AWS_REGION }} --query 'imageIds[].imageDigest' --output text)
@@ -159,6 +160,7 @@ jobs:
           else
             echo "No ECR repository 'strapi-app' found"
           fi
+          
           # Delete IAM access keys
           if aws iam get-user --user-name github-actions-user | grep -q '"UserName": "github-actions-user"'; then
             ACCESS_KEYS=$(aws iam list-access-keys --user-name github-actions-user --query 'AccessKeyMetadata[].AccessKeyId' --output text)
