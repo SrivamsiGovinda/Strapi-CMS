@@ -134,7 +134,7 @@ jobs:
         run: |
           echo "Cleaning up dependencies before Terraform Destroy"
           # Delete Aurora DB instances and clusters
-          for CLUSTER in strapi-prod-cluster strapi-staging-cluster; do
+          for CLUSTER in strapi-aurora-prod strapi-aurora-staging; do
             if aws rds describe-db-clusters --db-cluster-identifier $CLUSTER --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
               # Delete DB instances in the cluster
               INSTANCES=$(aws rds describe-db-instances --query "DBInstances[?DBClusterIdentifier=='$CLUSTER'].DBInstanceIdentifier" --output text --region ${{ env.AWS_REGION }})
