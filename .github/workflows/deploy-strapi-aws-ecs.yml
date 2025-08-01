@@ -149,6 +149,14 @@ jobs:
               echo "No Aurora DB cluster '$CLUSTER' found, skipping cleanup"
             fi
           done
+          # Delete DB subnet group
+            SUBNET_GROUP=strapi-aurora-subnet-group
+            if aws rds describe-db-subnet-groups --db-subnet-group-name $SUBNET_GROUP --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+              aws rds delete-db-subnet-group --db-subnet-group-name $SUBNET_GROUP --region ${{ env.AWS_REGION }} || echo "Failed to delete DB subnet group $SUBNET_GROUP"
+            else
+              echo "No DB subnet group '$SUBNET_GROUP' found, skipping cleanup"
+            fi
+          done
           # Scale down ECS services to zero
           if aws ecs list-services --cluster strapi-cluster --region ${{ env.AWS_REGION }} | grep -q 'strapi-prod-service'; then
             aws ecs update-service --cluster strapi-cluster --service strapi-prod-service --desired-count 0 --region ${{ env.AWS_REGION }}
