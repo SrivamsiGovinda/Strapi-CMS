@@ -146,7 +146,6 @@ jobs:
           else
             echo "No ECS service 'strapi-staging-service' found"
           fi
-
           # Delete ECR images
           if aws ecr describe-repositories --repository-names strapi-app --region ${{ env.AWS_REGION }} | grep -q '"repositoryName": "strapi-app"'; then
             IMAGE_DIGESTS=$(aws ecr list-images --repository-name strapi-app --region ${{ env.AWS_REGION }} --query 'imageIds[].imageDigest' --output text)
@@ -160,7 +159,6 @@ jobs:
           else
             echo "No ECR repository 'strapi-app' found"
           fi
-          
           # Delete IAM access keys
           if aws iam get-user --user-name github-actions-user | grep -q '"UserName": "github-actions-user"'; then
             ACCESS_KEYS=$(aws iam list-access-keys --user-name github-actions-user --query 'AccessKeyMetadata[].AccessKeyId' --output text)
@@ -174,8 +172,11 @@ jobs:
           else
             echo "No IAM user 'github-actions-user' found"
           fi
-          
-          # Delete subnets
+          # Clean up VPC dependencies
+          if aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} | grep -q '"VpcId"'; then
+            VPC_ID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} --query 'Vpcs[0].VpcId' --output text)
+            if [ -n "$VPC_ID" ]; then
+              # Delete subnets
               SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'Subnets[].SubnetId' --output text)
               for SUBNET in $SUBNETS; do
                 aws ec2 delete-subnet --subnet-id $SUBNET --region ${{ env.AWS_REGION }} || echo "Failed to delete subnet $SUBNET"
@@ -188,7 +189,7 @@ jobs:
               # Delete internet gateway
               IGW=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'InternetGateways[].InternetGatewayId' --output text)
               if [ -n "$IGW" ]; then
-                aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC_ID --region ${{ env.AWS_REGION }} || echo "Failed to detach internet gateway $IGW"
+                aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC_ID --region ${{ env.AWS_REGION }}
                 aws ec2 delete-internet-gateway --internet-gateway-id $IGW --region ${{ env.AWS_REGION }} || echo "Failed to delete internet gateway $IGW"
               fi
               # Delete security groups (except default)
@@ -202,7 +203,7 @@ jobs:
           else
             echo "No VPC with tag 'strapi-vpc' found"
           fi
-
+      
       - name: Import existing resources
         if: env.DESTROY == 'true'
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
