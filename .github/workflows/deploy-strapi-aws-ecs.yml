@@ -332,13 +332,20 @@ jobs:
           # Check and import non-default VPCs
           VPC_IDS=$(aws ec2 describe-vpcs --region ${{ env.AWS_REGION }} --query 'Vpcs[?IsDefault==`false`].VpcId' --output text)
           if [ -n "$VPC_IDS" ]; then
+            FIRST_VPC=true
             for VPC_ID in $VPC_IDS; do
               echo "Checking non-default VPC $VPC_ID"
-              echo "Importing VPC $VPC_ID into module.vpc.aws_vpc.main"
-              terraform import module.vpc.aws_vpc.main $VPC_ID
+              if [ "$FIRST_VPC" = true ]; then
+                echo "Importing VPC $VPC_ID into module.vpc.aws_vpc.main"
+                terraform state show module.vpc.aws_vpc.main >/dev/null 2>&1 || terraform import module.vpc.aws_vpc.main $VPC_ID
+                FIRST_VPC=false
+              else
+                echo "Additional non-default VPC $VPC_ID found. Update Terraform configuration to include multiple VPCs (e.g., module.vpc[\\\"$VPC_ID\\\"]) and import manually with:"
+                echo "terraform import module.vpc[\\\"$VPC_ID\\\"].aws_vpc.main $VPC_ID"
+              fi
             done
           else
-              echo "No VPC with tag 'strapi-vpc' found, skipping import"
+            echo "No non-default VPCs found in region ${{ env.AWS_REGION }}, skipping import"
           fi
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
