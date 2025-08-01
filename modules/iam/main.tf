@@ -21,7 +21,19 @@ resource "aws_iam_user_policy" "github_actions_policy" {
           "logs:*",
           "route53:*",
           "elasticloadbalancing:*",
-          "cloudwatch:*"
+          "cloudwatch:*",
+          "S3:PutObject",
+          "S3:GetObject",
+          "S3:DeleteObjecgt",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "ec2:DescribeVpcs",
+          "ec2:DeleteSubnet",
+          "ec2:DeleteRouteTable",
+          "ec2:DetachInternetGateway",
+          "ec2:DeleteInternetGateway",
+          "ec2:DeleteSecurityGroup"
         ]
         Resource = "*"
       }
@@ -31,6 +43,9 @@ resource "aws_iam_user_policy" "github_actions_policy" {
 
 resource "aws_iam_access_key" "github_actions" {
   user = aws_iam_user.github_actions.name
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 output "access_key_id" {

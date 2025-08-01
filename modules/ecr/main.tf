@@ -7,6 +7,7 @@ resource "aws_ecr_repository" "strapi" {
   tags = {
     Name = "strapi-ecr"
   }
+  force_delete = true
 }
 
 output "repository_url" {
