@@ -133,6 +133,22 @@ jobs:
         working-directory: ${{ env.TERRAFORM_DIR }}
         run: |
           echo "Cleaning up dependencies before Terraform Destroy"
+          # Delete Aurora DB instances and clusters
+          for CLUSTER in strapi-prod-cluster strapi-staging-cluster; do
+            if aws rds describe-db-clusters --db-cluster-identifier $CLUSTER --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+              # Delete DB instances in the cluster
+              INSTANCES=$(aws rds describe-db-instances --query "DBInstances[?DBClusterIdentifier=='$CLUSTER'].DBInstanceIdentifier" --output text --region ${{ env.AWS_REGION }})
+              for INSTANCE in $INSTANCES; do
+                aws rds delete-db-instance --db-instance-identifier $INSTANCE --skip-final-snapshot --region ${{ env.AWS_REGION }} || echo "Failed to delete DB instance $INSTANCE"
+                aws rds wait db-instance-deleted --db-instance-identifier $INSTANCE --region ${{ env.AWS_REGION }} || echo "Timeout waiting for DB instance $INSTANCE deletion"
+              done
+              # Delete the DB cluster
+              aws rds delete-db-cluster --db-cluster-identifier $CLUSTER --skip-final-snapshot --region ${{ env.AWS_REGION }} || echo "Failed to delete DB cluster $CLUSTER"
+              aws rds wait db-cluster-deleted --db-cluster-identifier $CLUSTER --region ${{ env.AWS_REGION }} || echo "Timeout waiting for DB cluster $CLUSTER deletion"
+            else
+              echo "No Aurora DB cluster '$CLUSTER' found, skipping cleanup"
+            fi
+          done
           # Scale down ECS services to zero
           if aws ecs list-services --cluster strapi-cluster --region ${{ env.AWS_REGION }} | grep -q 'strapi-prod-service'; then
             aws ecs update-service --cluster strapi-cluster --service strapi-prod-service --desired-count 0 --region ${{ env.AWS_REGION }}
