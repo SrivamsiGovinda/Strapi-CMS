@@ -176,6 +176,31 @@ jobs:
           if aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} | grep -q '"VpcId"'; then
             VPC_ID=$(aws ec2 describe-vpcs --filters Name=tag:Name,Values=strapi-vpc --region ${{ env.AWS_REGION }} --query 'Vpcs[0].VpcId' --output text)
             if [ -n "$VPC_ID" ]; then
+              # Disassociate and release Elastic IPs
+              EIPS=$(aws ec2 describe-addresses --filters Name=domain,Values=vpc --region ${{ env.AWS_REGION }} --query 'Addresses[].AllocationId' --output text)
+              if [ -n "$EIPS" ]; then
+                for EIP in $EIPS; do
+                  ASSOCIATION_ID=$(aws ec2 describe-addresses --allocation-ids $EIP --region ${{ env.AWS_REGION }} --query 'Addresses[0].AssociationId' --output text)
+                  if [ -n "$ASSOCIATION_ID" ] && [ "$ASSOCIATION_ID" != "None" ]; then
+                    aws ec2 disassociate-address --association-id $ASSOCIATION_ID --region ${{ env.AWS_REGION }} || echo "Failed to disassociate EIP $EIP"
+                  fi
+                  aws ec2 release-address --allocation-id $EIP --region ${{ env.AWS_REGION }} || echo "Failed to release EIP $EIP"
+                done
+              else
+                echo "No Elastic IPs found in VPC $VPC_ID"
+              fi
+              # Delete NAT Gateways
+              NAT_GATEWAYS=$(aws ec2 describe-nat-gateways --filter Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'NatGateways[].NatGatewayId' --output text)
+              if [ -n "$NAT_GATEWAYS" ]; then
+                for NAT_GW in $NAT_GATEWAYS; do
+                  aws ec2 delete-nat-gateway --nat-gateway-id $NAT_GW --region ${{ env.AWS_REGION }} || echo "Failed to delete NAT Gateway $NAT_GW"
+                  echo "Waiting for NAT Gateway $NAT_GW to be deleted"
+                  aws ec2 wait nat-gateway-deleted --nat-gateway-ids $NAT_GW --region ${{ env.AWS_REGION }}
+                done
+              else
+                echo "No NAT Gateways found in VPC $VPC_ID"
+              fi
+            if [ -n "$VPC_ID" ]; then
               # Delete subnets
               SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'Subnets[].SubnetId' --output text)
               for SUBNET in $SUBNETS; do
