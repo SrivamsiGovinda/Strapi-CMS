@@ -148,8 +148,7 @@ jobs:
             else
               echo "No Aurora DB cluster '$CLUSTER' found, skipping cleanup"
             fi
-          done
-          # Delete DB subnet group
+            # Delete DB subnet group
             SUBNET_GROUP=strapi-aurora-subnet-group
             if aws rds describe-db-subnet-groups --db-subnet-group-name $SUBNET_GROUP --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
               aws rds delete-db-subnet-group --db-subnet-group-name $SUBNET_GROUP --region ${{ env.AWS_REGION }} || echo "Failed to delete DB subnet group $SUBNET_GROUP"
