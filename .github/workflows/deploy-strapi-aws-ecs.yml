@@ -208,7 +208,7 @@ jobs:
             echo "No IAM user 'github-actions-user' found, skipping cleanup"
           fi
           # Clean up VPC dependencies for all VPCs
-          VPC_IDS=$(aws ec2 describe-vpcs --region ${{ env.AWS_REGION }} --query 'Vpcs[].VpcId' --output text)
+          VPC_IDS=$(aws ec2 describe-vpcs --region ${{ env.AWS_REGION }} --query 'Vpcs[?IsDefault==`false`].VpcId' --output text)
           if [ -n "$VPC_IDS" ]; then
             for VPC_ID in $VPC_IDS; do
               echo "Cleaning up VPC $VPC_ID"
