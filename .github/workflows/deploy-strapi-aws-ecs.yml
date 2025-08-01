@@ -200,7 +200,6 @@ jobs:
               else
                 echo "No NAT Gateways found in VPC $VPC_ID"
               fi
-            if [ -n "$VPC_ID" ]; then
               # Delete subnets
               SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'Subnets[].SubnetId' --output text)
               for SUBNET in $SUBNETS; do
@@ -214,7 +213,7 @@ jobs:
               # Delete internet gateway
               IGW=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --region ${{ env.AWS_REGION }} --query 'InternetGateways[].InternetGatewayId' --output text)
               if [ -n "$IGW" ]; then
-                aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC_ID --region ${{ env.AWS_REGION }}
+                aws ec2 detach-internet-gateway --internet-gateway-id $IGW --vpc-id $VPC_ID --region ${{ env.AWS_REGION }} || echo "Failed to detach internet gateway $IGW"
                 aws ec2 delete-internet-gateway --internet-gateway-id $IGW --region ${{ env.AWS_REGION }} || echo "Failed to delete internet gateway $IGW"
               fi
               # Delete security groups (except default)
@@ -228,6 +227,7 @@ jobs:
           else
             echo "No VPC with tag 'strapi-vpc' found"
           fi
+          
       - name: Import existing resources
         if: env.DESTROY == 'true'
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
@@ -368,5 +368,5 @@ jobs:
           docker push ${{ env.DOCKER_IMAGE }}
 
 
-          
+
           
