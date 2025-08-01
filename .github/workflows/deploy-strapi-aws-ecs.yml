@@ -247,10 +247,13 @@ jobs:
         run: |
           echo "Importing existing resources into Terraform state if not already present"
           # Check and import ECS cluster
-          if aws ecs describe-clusters --clusters strapi-cluster --region ${{ env.AWS_REGION }} --query 'clusters[?clusterName==`strapi-cluster`]' --output json | grep -q '"clusterName": "strapi-cluster"'; then
-            terraform state show module.ecs.aws_ecs_cluster.strapi_cluster >/dev/null 2>&1 || terraform import module.ecs.aws_ecs_cluster.strapi_cluster strapi-cluster
+          echo "Checking for ECS cluster 'strapi-cluster':"
+          CLUSTER_CHECK=$(aws ecs describe-clusters --clusters strapi-cluster --region ${{ env.AWS_REGION }} --query 'clusters[?clusterName==`strapi-cluster` && status!=`INACTIVE`]' --output json)
+          echo "ECS cluster check response: $CLUSTER_CHECK"
+          if [ -n "$CLUSTER_CHECK" ] && [ "$CLUSTER_CHECK" != "[]" ] && echo "$CLUSTER_CHECK" | grep -q '"clusterName": "strapi-cluster"'; then
+            terraform state show module.ecs.aws_ecs_cluster.main >/dev/null 2>&1 || terraform import module.ecs.aws_ecs_cluster.main strapi-cluster
           else
-            echo "No ECS cluster 'strapi-cluster' found, skipping import"
+            echo "No active ECS cluster 'strapi-cluster' found, skipping import"
           fi
           # Check and import Aurora prod cluster
           if aws rds describe-db-clusters --db-cluster-identifier strapi-aurora-prod --region ${{ env.AWS_REGION }} | grep -q '"DBClusterIdentifier": "strapi-aurora-prod"'; then
