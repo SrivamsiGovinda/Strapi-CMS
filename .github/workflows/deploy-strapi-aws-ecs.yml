@@ -1,6 +1,5 @@
 name: Deploy Strapi to AWS ECS
 
-
 on:
   push:
     branches:
@@ -104,12 +103,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
      
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.5.0
-
       - name: Create S3 bucket and DynamoDB table for Terraform backend
         run: |
           echo "Creating S3 bucket '${{ env.TF_STATE_BUCKET }}' if it does not exist"
@@ -123,6 +116,24 @@ jobs:
             --region ${{ env.AWS_REGION }}
           echo "Waiting for DynamoDB table to be active"
           aws dynamodb wait table-exists --table-name ${{ env.TF_DYNAMODB_TABLE }} --region ${{ env.AWS_REGION }}
+      
+      - name: Validate Route53 Domain
+        if: env.DESTROY == 'false'
+        run: |
+          if [ -z "${{ secrets.DOMAIN_NAME }}" ]; then
+            echo "Error: DOMAIN_NAME secret is not set"
+            exit 1
+          fi
+          if [[ ! "${{ secrets.DOMAIN_NAME }}" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$ ]]; then
+            echo "Error: DOMAIN_NAME '${{ secrets.DOMAIN_NAME }}' is invalid or reserved"
+            exit 1
+          fi
+          echo "Valid domain: ${{ secrets.DOMAIN_NAME }}"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
       
       - name: Terraform Init
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
@@ -168,6 +179,41 @@ jobs:
               aws rds delete-db-subnet-group --db-subnet-group-name $SUBNET_GROUP --region ${{ env.AWS_REGION }} || echo "Failed to delete DB subnet group $SUBNET_GROUP"
             else
               echo "No DB subnet group '$SUBNET_GROUP' found, skipping cleanup"
+            fi
+          done
+          # Delete Secrets Manager secrets
+          for SECRET in strapi-prod-db-password strapi-staging-db-password; do
+            if aws secretsmanager describe-secret --secret-id $SECRET --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+              aws secretsmanager delete-secret --secret-id $SECRET --force-delete-without-recovery --region ${{ env.AWS_REGION }} || echo "Failed to delete secret $SECRET"
+            else
+              echo "No secret '$SECRET' found, skipping cleanup"
+            fi
+          done
+          # Delete IAM role (detach policies first)
+          if aws iam get-role --role-name strapi-ecs-execution-role >/dev/null 2>&1; then
+            POLICIES=$(aws iam list-attached-role-policies --role-name strapi-ecs-execution-role --query 'AttachedPolicies[].PolicyArn' --output text --region ${{ env.AWS_REGION }})
+            for POLICY in $POLICIES; do
+              aws iam detach-role-policy --role-name strapi-ecs-execution-role --policy-arn $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to detach policy $POLICY from strapi-ecs-execution-role"
+            done
+            aws iam delete-role --role-name strapi-ecs-execution-role --region ${{ env.AWS_REGION }} || echo "Failed to delete IAM role strapi-ecs-execution-role"
+          else
+            echo "No IAM role 'strapi-ecs-execution-role' found, skipping cleanup"
+          fi
+          # Delete ELBv2 target groups
+          for TG in strapi-prod-tg strapi-staging-tg; do
+            if aws elbv2 describe-target-groups --names $TG --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+              TG_ARN=$(aws elbv2 describe-target-groups --names $TG --region ${{ env.AWS_REGION }} --query 'TargetGroups[0].TargetGroupArn' --output text)
+              aws elbv2 delete-target-group --target-group-arn $TG_ARN --region ${{ env.AWS_REGION }} || echo "Failed to delete target group $TG"
+            else
+              echo "No target group '$TG' found, skipping cleanup"
+            fi
+          done
+          # Delete CloudWatch log groups
+          for LOG_GROUP in /ecs/strapi-prod /ecs/strapi-staging; do
+            if aws logs describe-log-groups --log-group-name-prefix $LOG_GROUP --region ${{ env.AWS_REGION }} | grep -q "\"logGroupName\": \"$LOG_GROUP\""; then
+              aws logs delete-log-group --log-group-name $LOG_GROUP --region ${{ env.AWS_REGION }} || echo "Failed to delete log group $LOG_GROUP"
+            else
+              echo "No log group '$LOG_GROUP' found, skipping cleanup"
             fi
           done
           # Scale down ECS services to zero
