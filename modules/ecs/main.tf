@@ -155,7 +155,9 @@ resource "aws_lb_target_group" "strapi" {
   vpc_id       = var.vpc_id
   target_type  = "ip"
   health_check {
-    path                = "/_health"
+    path                = "/health"
+    protocol            = "HTTP"
+    matcher             = "200"
     healthy_threshold   = 2
     unhealthy_threshold = 2
     timeout             = 5
