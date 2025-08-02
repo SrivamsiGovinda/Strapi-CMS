@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  actions: write
+
 env:
   AWS_REGION: us-east-1
   TERRAFORM_DIR: terraform
@@ -190,21 +194,25 @@ jobs:
             fi
           done
           
-           # Delete IAM role (detach both inline and managed policies first)
-          if aws iam get-role --role-name strapi-ecs-execution-role >/dev/null 2>&1; then
-            # Detach inline policies
-            INLINE_POLICIES=$(aws iam list-role-policies --role-name strapi-ecs-execution-role --query 'PolicyNames[]' --output text --region ${{ env.AWS_REGION }})
-            for POLICY in $INLINE_POLICIES; do
-              aws iam delete-role-policy --role-name strapi-ecs-execution-role --policy-name $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to delete inline policy $POLICY from strapi-ecs-execution-role"
-            done
-            # Detach managed policies
-            MANAGED_POLICIES=$(aws iam list-attached-role-policies --role-name strapi-ecs-execution-role --query 'AttachedPolicies[].PolicyArn' --output text --region ${{ env.AWS_REGION }})
-            for POLICY in $MANAGED_POLICIES; do
-              aws iam detach-role-policy --role-name strapi-ecs-execution-role --policy-arn $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to detach managed policy $POLICY from strapi-ecs-execution-role"
-            done
-            aws iam delete-role --role-name strapi-ecs-execution-role --region ${{ env.AWS_REGION }} || echo "Failed to delete IAM role strapi-ecs-execution-role"
+          # Delete IAM role only if DESTROY=true
+          if [ "${{ env.DESTROY }}" = "true" ]; then
+            if aws iam get-role --role-name strapi-ecs-execution-role >/dev/null 2>&1; then
+              # Detach inline policies
+              INLINE_POLICIES=$(aws iam list-role-policies --role-name strapi-ecs-execution-role --query 'PolicyNames[]' --output text --region ${{ env.AWS_REGION }})
+              for POLICY in $INLINE_POLICIES; do
+                aws iam delete-role-policy --role-name strapi-ecs-execution-role --policy-name $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to delete inline policy $POLICY from strapi-ecs-execution-role"
+              done
+              # Detach managed policies
+              MANAGED_POLICIES=$(aws iam list-attached-role-policies --role-name strapi-ecs-execution-role --query 'AttachedPolicies[].PolicyArn' --output text --region ${{ env.AWS_REGION }})
+              for POLICY in $MANAGED_POLICIES; do
+                aws iam detach-role-policy --role-name strapi-ecs-execution-role --policy-arn $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to detach managed policy $POLICY from strapi-ecs-execution-role"
+              done
+              aws iam delete-role --role-name strapi-ecs-execution-role --region ${{ env.AWS_REGION }} || echo "Failed to delete IAM role strapi-ecs-execution-role"
+            else
+              echo "No IAM role 'strapi-ecs-execution-role' found, skipping cleanup"
+            fi
           else
-            echo "No IAM role 'strapi-ecs-execution-role' found, skipping cleanup"
+            echo "DESTROY=false, skipping IAM role 'strapi-ecs-execution-role' cleanup"
           fi
 
           # Delete ELBv2 target groups
@@ -477,6 +485,6 @@ jobs:
           docker push ${{ env.DOCKER_IMAGE }}
 
 
-          
+
         
           
