@@ -189,16 +189,24 @@ jobs:
               echo "No secret '$SECRET' found, skipping cleanup"
             fi
           done
-          # Delete IAM role (detach policies first)
+          
+           # Delete IAM role (detach both inline and managed policies first)
           if aws iam get-role --role-name strapi-ecs-execution-role >/dev/null 2>&1; then
-            POLICIES=$(aws iam list-attached-role-policies --role-name strapi-ecs-execution-role --query 'AttachedPolicies[].PolicyArn' --output text --region ${{ env.AWS_REGION }})
-            for POLICY in $POLICIES; do
-              aws iam detach-role-policy --role-name strapi-ecs-execution-role --policy-arn $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to detach policy $POLICY from strapi-ecs-execution-role"
+            # Detach inline policies
+            INLINE_POLICIES=$(aws iam list-role-policies --role-name strapi-ecs-execution-role --query 'PolicyNames[]' --output text --region ${{ env.AWS_REGION }})
+            for POLICY in $INLINE_POLICIES; do
+              aws iam delete-role-policy --role-name strapi-ecs-execution-role --policy-name $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to delete inline policy $POLICY from strapi-ecs-execution-role"
+            done
+            # Detach managed policies
+            MANAGED_POLICIES=$(aws iam list-attached-role-policies --role-name strapi-ecs-execution-role --query 'AttachedPolicies[].PolicyArn' --output text --region ${{ env.AWS_REGION }})
+            for POLICY in $MANAGED_POLICIES; do
+              aws iam detach-role-policy --role-name strapi-ecs-execution-role --policy-arn $POLICY --region ${{ env.AWS_REGION }} || echo "Failed to detach managed policy $POLICY from strapi-ecs-execution-role"
             done
             aws iam delete-role --role-name strapi-ecs-execution-role --region ${{ env.AWS_REGION }} || echo "Failed to delete IAM role strapi-ecs-execution-role"
           else
             echo "No IAM role 'strapi-ecs-execution-role' found, skipping cleanup"
           fi
+
           # Delete ELBv2 target groups
           for TG in strapi-prod-tg strapi-staging-tg; do
             if aws elbv2 describe-target-groups --names $TG --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
