@@ -338,7 +338,7 @@ jobs:
               terraform state show module.vpc.aws_vpc.main >/dev/null 2>&1 || terraform import module.vpc.aws_vpc.main $VPC_ID
             done
           else
-              echo "No VPC with tag 'strapi-vpc' found, skipping import"
+              echo "No non-default VPCs found in region ${{ env.AWS_REGION }}, skipping import"
           fi
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
