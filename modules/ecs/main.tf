@@ -50,10 +50,10 @@ resource "aws_iam_role_policy" "ecs_execution_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "secretsmanager:GetSecretValue",
-          "ecr:BatchGetImage",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "secretsmanager:GetSecretValue"
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
         ]
         Resource = "*"
       }
