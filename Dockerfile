@@ -1,7 +1,7 @@
 FROM strapi/strapi:latest
 WORKDIR /srv/app
-COPY ./config /srv/app/config
+COPY . .
 RUN npm install --legacy-peer-deps
 RUN npm run build
 EXPOSE 1337
-CMD ["strapi", "start"]
+CMD ["npm", "run", "start"]
