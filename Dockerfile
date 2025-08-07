@@ -7,6 +7,8 @@
  #copy package.json and package-lock.json to the working directory
  COPY package*.json ./
 
+ RUN ls -l /app
+
  #Install Strapi dependencies
  RUN npm install
 

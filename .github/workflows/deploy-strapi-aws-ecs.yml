@@ -481,8 +481,8 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ env.ECR_REPOSITORY_URL }}:latest
         run: |
-          docker build -t ${{ env.DOCKER_IMAGE }} .
-          docker push ${{ env.DOCKER_IMAGE }}
+           docker build --no-cache -t ${{ env.DOCKER_IMAGE }} .
+           docker push ${{ env.DOCKER_IMAGE }}
 
 
 
