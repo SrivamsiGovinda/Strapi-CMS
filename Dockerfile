@@ -2,7 +2,7 @@
  FROM node:14
 
  #Set the working directory in the container
- WORKDIR /app
+ WORKDIR /srv/app
 
  #copy package.json and package-lock.json to the working directory
  COPY package*.json ./
@@ -15,6 +15,8 @@
  #Copy the rest of your application's source code
  COPY . .
 
+ RUN npm run build 
+ 
  #Expose the port of strapi app
  EXPOSE 1337
 
