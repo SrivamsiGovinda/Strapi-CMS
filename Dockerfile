@@ -8,7 +8,7 @@
  COPY package*.json ./
 
  #Install Strapi dependencies
- RUN npm Install
+ RUN npm install
 
  #Copy the rest of your application's source code
  COPY . .
