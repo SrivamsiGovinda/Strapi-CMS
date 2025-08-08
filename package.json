@@ -14,7 +14,9 @@
     "@strapi/strapi": "4.14.3",
     "@strapi/plugin-users-permissions": "4.14.3",
     "@strapi/plugin-i18n": "4.14.3",
-    "better-sqlite3": "8.6.0"
+    "better-sqlite3": "8.6.0",
+    "mysql": "^2.18.1",
+    "ajv": "^8.17.1"
   },
   "author": {
     "name": "A Strapi developer"
