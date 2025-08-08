@@ -1,5 +1,5 @@
  #use an official Node.js runtime as a parent image
- FROM node:14
+ FROM node:16
 
  #Set the working directory in the container
  WORKDIR /srv/app
@@ -16,6 +16,7 @@
  COPY . .
 
  RUN npm run build 
+
  
  #Expose the port of strapi app
  EXPOSE 1337
