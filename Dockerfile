@@ -2,12 +2,10 @@
  FROM node:16
 
  #Set the working directory in the container
- WORKDIR /srv/app
+ WORKDIR /
 
  #copy package.json and package-lock.json to the working directory
  COPY package*.json ./
-
- RUN ls -l /srv/app
 
  #Install Strapi dependencies
  RUN npm install
