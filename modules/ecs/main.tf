@@ -100,6 +100,10 @@ resource "aws_ecs_task_definition" "strapi" {
         {
           name  = "DATABASE_USERNAME"
           value = "admin"
+        },
+        {
+          name = "APP_KEYS"
+          value = var.app_keys[each.key]
         }
       ]
       secrets = [
