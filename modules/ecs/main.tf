@@ -103,7 +103,7 @@ resource "aws_ecs_task_definition" "strapi" {
         },
         {
           name = "APP_KEYS"
-          value = var.app_keys[each.key]
+          value = var.app_keys
         }
       ]
       secrets = [
