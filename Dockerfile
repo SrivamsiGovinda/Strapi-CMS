@@ -19,5 +19,5 @@
  #Expose the port of strapi app
  EXPOSE 1337
 
- #Define the command to start your strapi app
+ #Define the command to start your strapi application
  CMD ["npm", "run", "start"]
